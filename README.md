@@ -3,6 +3,13 @@ a simple spring boot application for a "modeling and analysis of systems" course
 
 **how to run:**
 
-clone the repo.
-run mp5jpaapplication.java from your ide.
+clone the repo 
+
+run mp5jpaapplication.java from your ide
+or run the following command in the terminal:
+
+```bash
+./mvnw spring-boot:run
+```
+
 h2 console is available at: http://localhost:8080/h2-console.
