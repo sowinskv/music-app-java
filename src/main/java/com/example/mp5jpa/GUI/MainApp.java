@@ -54,6 +54,9 @@ public class MainApp {
     private JPanel songListContentPanel;
     private JTextField searchField;
 
+    private JLabel playerEmptyStateLabel;
+    private JPanel actualControlsPanel;
+
 
     public MainApp(MusicService musicService) {
         this.musicService = musicService;
@@ -62,10 +65,10 @@ public class MainApp {
     }
 
     private void loadPlayerIcons() {
-        playIcon = loadImageIcon("/images/resume.png", 50, 50);
-        pauseIcon = loadImageIcon("/images/pause.png", 50, 50);
+        playIcon = loadImageIcon("/images/resume.png", 60, 60);
+        pauseIcon = loadImageIcon("/images/pause.png", 60, 60);
         rewindIcon = loadImageIcon("/images/rewind.png", 40, 40);
-        forwardIcon = loadImageIcon("/images/forward.png", 40, 40); // Użyj właściwej ikony dla "forward"
+        forwardIcon = loadImageIcon("/images/forward.png", 40, 40);
 
         if (playIcon == null) System.err.println("Play icon not found!");
         if (pauseIcon == null) System.err.println("Pause icon not found!");
@@ -106,6 +109,7 @@ public class MainApp {
         frame.setVisible(true);
 
         updatePlayPauseButton();
+        updatePlayerControlsVisibility();
     }
 
     private void createSidebarPanel() {
@@ -188,42 +192,44 @@ public class MainApp {
     private void createLibraryPanel() {
         JPanel libraryPanel = new BackgroundPanel(loadImage("/images/library_bg.jpg"));
         libraryPanel.setLayout(new BorderLayout(0, 10));
-        libraryPanel.setBorder(new EmptyBorder(10, 20, 10, 20)); // Mniejszy górny/dolny padding
+        libraryPanel.setBorder(new EmptyBorder(10, 20, 10, 20));
 
-        // NOWA ZMIANA: Panel na Pasek Wyszukiwania
         JPanel searchPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
         searchPanel.setOpaque(false);
-        searchField = new JTextField(25); // Pole tekstowe na 25 znaków
+        searchField = new JTextField(25);
         searchField.setFont(new Font("Helvetica", Font.PLAIN, 14));
-        // Dodanie Listenera do pola wyszukiwania, aby dynamicznie filtrować listę
+        searchField.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(new Color(200, 200, 200, 150), 1),
+                new EmptyBorder(5, 8, 5, 8)
+        ));
+        searchField.setOpaque(false);
+
         searchField.getDocument().addDocumentListener(new DocumentListener() {
             public void changedUpdate(DocumentEvent e) { filterSongs(); }
             public void removeUpdate(DocumentEvent e) { filterSongs(); }
             public void insertUpdate(DocumentEvent e) { filterSongs(); }
         });
-        searchPanel.add(new JLabel("Search: ")); // Etykieta dla pola wyszukiwania
+        searchPanel.add(new JLabel("Search: "));
         searchPanel.add(searchField);
-        libraryPanel.add(searchPanel, BorderLayout.NORTH); // Pasek wyszukiwania na górze
+        libraryPanel.add(searchPanel, BorderLayout.NORTH);
 
-        // Inicjalizujemy songListContentPanel, jeśli jeszcze nie istnieje
         if (songListContentPanel == null) {
             songListContentPanel = new JPanel();
             songListContentPanel.setLayout(new BoxLayout(songListContentPanel, BoxLayout.Y_AXIS));
             songListContentPanel.setOpaque(false);
         }
-        // Początkowe wypełnienie listy wszystkimi utworami
+
         updateSongListPanel(allSongsMasterList);
 
         JScrollPane scrollPane = new JScrollPane(songListContentPanel);
         scrollPane.setOpaque(false);
         scrollPane.getViewport().setOpaque(false);
-        scrollPane.setBorder(BorderFactory.createEmptyBorder(10,0,0,0)); // Odstęp między wyszukiwaniem a listą
+        scrollPane.setBorder(BorderFactory.createEmptyBorder(10,0,0,0));
 
         libraryPanel.add(scrollPane, BorderLayout.CENTER);
         cards.add(libraryPanel, "LIBRARY");
     }
 
-    // NOWA ZMIANA: Metoda do filtrowania listy piosenek
     private void filterSongs() {
         String searchText = searchField.getText().toLowerCase().trim();
         if (searchText.isEmpty()) {
@@ -237,9 +243,8 @@ public class MainApp {
         }
     }
 
-    // NOWA ZMIANA: Metoda do aktualizacji zawartości panelu z listą piosenek
     private void updateSongListPanel(java.util.List<Song> songsToShow) {
-        songListContentPanel.removeAll(); // Wyczyść poprzednie elementy
+        songListContentPanel.removeAll();
         for (Song song : songsToShow) {
             SongListItemPanel songPanel = new SongListItemPanel(song);
             songListContentPanel.add(songPanel);
@@ -253,11 +258,13 @@ public class MainApp {
     private void createPlayerPanel() {
         JPanel playerPanel = new BackgroundPanel(loadImage("/images/library_bg.jpg"));
         playerPanel.setLayout(new BorderLayout());
-        playerPanel.setBorder(new EmptyBorder(10,10,10,10));
+        playerPanel.setBorder(new EmptyBorder(10, 10, 10, 10));
 
         songCoverLabel = new JLabel();
         songCoverLabel.setHorizontalAlignment(SwingConstants.CENTER);
+        // Initially, no cover or text, this will be shown when a song plays
         playerPanel.add(songCoverLabel, BorderLayout.CENTER);
+
 
         songTitleLabel = new JLabel("", SwingConstants.CENTER);
         songTitleLabel.setForeground(Color.BLACK);
@@ -265,9 +272,10 @@ public class MainApp {
         songTitleLabel.setBorder(new EmptyBorder(20, 0, 10, 0));
         playerPanel.add(songTitleLabel, BorderLayout.NORTH);
 
-        JPanel controlsPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 10));
-        controlsPanel.setOpaque(false);
-        controlsPanel.setBorder(new EmptyBorder(0,0,10,0));
+        // Panel for actual player controls (rewind, play/pause, forward)
+        actualControlsPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 10));
+        actualControlsPanel.setOpaque(false);
+        actualControlsPanel.setBorder(new EmptyBorder(0, 0, 10, 0));
 
         rewindButton = new JButton(rewindIcon);
         stylePlayerButton(rewindButton);
@@ -281,12 +289,46 @@ public class MainApp {
         stylePlayerButton(forwardButton);
         forwardButton.addActionListener(e -> forwardAudio());
 
-        controlsPanel.add(rewindButton);
-        controlsPanel.add(playPauseButton);
-        controlsPanel.add(forwardButton);
+        actualControlsPanel.add(rewindButton);
+        actualControlsPanel.add(playPauseButton);
+        actualControlsPanel.add(forwardButton);
 
-        playerPanel.add(controlsPanel, BorderLayout.SOUTH);
+        playerEmptyStateLabel = new JLabel("<html><div style='text-align: center;'>Oh oh... nothing to show here yet.<br>Go to your library & pick a track!</div></html>", SwingConstants.CENTER);
+        playerEmptyStateLabel.setFont(new Font("Helvetica", Font.PLAIN, 16));
+        playerEmptyStateLabel.setForeground(Color.BLACK);
+        playerEmptyStateLabel.setHorizontalAlignment(SwingConstants.CENTER);
+        playerEmptyStateLabel.setVerticalAlignment(SwingConstants.CENTER);
+
+        JPanel southPanelContainer = new JPanel(new CardLayout());
+        southPanelContainer.setOpaque(false);
+        southPanelContainer.add(actualControlsPanel, "CONTROLS");
+        southPanelContainer.add(playerEmptyStateLabel, "EMPTY_STATE");
+
+        playerPanel.add(southPanelContainer, BorderLayout.SOUTH);
+
         cards.add(playerPanel, "PLAYER");
+
+        updatePlayerControlsVisibility();
+    }
+
+    private void updatePlayerControlsVisibility() {
+        if (cards == null || playerEmptyStateLabel == null || actualControlsPanel == null) return; // Guard clause
+
+        CardLayout cl = (CardLayout) ((JPanel)actualControlsPanel.getParent()).getLayout(); // Get CardLayout from southPanelContainer
+        JPanel southPanel = (JPanel) actualControlsPanel.getParent();
+
+        if (audioClip == null || !audioClip.isOpen()) { // No song loaded or clip is closed
+            // Show empty state message, hide controls
+            songCoverLabel.setIcon(null); // Clear cover art
+            songCoverLabel.setText("");   // Clear any "No Cover Art" text
+            songTitleLabel.setText("");   // Clear song title
+            cl.show(southPanel, "EMPTY_STATE");
+        } else {
+            // Show controls, hide empty state message
+            cl.show(southPanel, "CONTROLS");
+        }
+        // Ensure play/pause button icon is also updated
+        updatePlayPauseButton();
     }
 
     private void stylePlayerButton(JButton button) {
@@ -295,7 +337,7 @@ public class MainApp {
         button.setBorderPainted(false);
         button.setFocusPainted(false);
         button.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-        button.setPreferredSize(new Dimension(50, 50)); // Zwiększony rozmiar dla ikon odtwarzacza
+        //button.setPreferredSize(new Dimension(50, 50));
     }
 
     private void updatePlayPauseButton() {
@@ -336,6 +378,7 @@ public class MainApp {
             audioClip.open(ais);
             audioClip.start();
             updatePlayPauseButton();
+            updatePlayerControlsVisibility();
 
             audioClip.addLineListener(event -> {
                 if (event.getType() == LineEvent.Type.STOP) {
@@ -344,7 +387,10 @@ public class MainApp {
                     }
                     SwingUtilities.invokeLater(this::updatePlayPauseButton);
                 } else if (event.getType() == LineEvent.Type.START) {
-                    SwingUtilities.invokeLater(this::updatePlayPauseButton);
+                    SwingUtilities.invokeLater(() -> {
+                        updatePlayPauseButton();
+                        updatePlayerControlsVisibility();
+                    });
                 }
             });
 
@@ -377,6 +423,12 @@ public class MainApp {
             e.printStackTrace();
             JOptionPane.showMessageDialog(frame, "An unexpected error occurred with song: " + song.getTitle(), "Error", JOptionPane.ERROR_MESSAGE);
         }
+        finally {
+            SwingUtilities.invokeLater(() -> {
+                updatePlayPauseButton();
+                updatePlayerControlsVisibility();
+            });
+        }
     }
 
     private void toggleAudioPlayback() {
@@ -390,6 +442,9 @@ public class MainApp {
                 audioClip.start();
             }
             updatePlayPauseButton();
+        }
+        else {
+            updatePlayerControlsVisibility();
         }
     }
 
