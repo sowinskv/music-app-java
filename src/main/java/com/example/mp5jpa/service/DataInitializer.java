@@ -34,17 +34,17 @@ public class DataInitializer implements CommandLineRunner {
             artistRepository.saveAll(List.of(theHellp, enya, skepta, travis));
 
             Album thAlbum = new Album("TH", theHellp, LocalDate.parse("2023-10-01"));
-            Song tuTuNeurotic = new Song("Tu Tu Neurotic", theHellp, 180, "Pop", "resources/audio/tutuneurotic.wav", "/tutu.jpg");
+            Song tuTuNeurotic = new Song("Tu Tu Neurotic", theHellp, 180, "Pop", "/audio/tutuneurotic.wav", "/images/tutu.jpg");
             thAlbum.addSong(tuTuNeurotic);
 
             Album hotTimeAlbum = new Album("Hot Times", enya, LocalDate.parse("2024-01-15"));
-            Song onlyTime = new Song("Only Hot Time", enya, 194, "Blend", "resources/audio/onlyhottime.wav", "/onlyhottime.jpg");
+            Song onlyTime = new Song("Only Hot Time", enya, 194, "Blend", "/audio/onlyhottime.wav", "/images/onlyhottime.jpg");
             hotTimeAlbum.addSong(onlyTime);
 
             albumRepository.saveAll(List.of(thAlbum, hotTimeAlbum));
 
-            Song smoothJazz = new Song("Smooth Jazz", skepta, 210, "Grime & Jazz", "resources/audio/skeptajazz.wav", "/jazz.jpg");
-            Song sdp = new Song("SDP", travis, 300, "Rap", "resources/audio/sdpeyes.wav", "/sdp.jpg");
+            Song smoothJazz = new Song("Smooth Jazz", skepta, 210, "Grime & Jazz", "/audio/skeptajazz.wav", "/images/jazz.jpg");
+            Song sdp = new Song("SDP", travis, 300, "Rap", "/audio/sdpeyes.wav", "/images/sdp.jpg");
             songRepository.saveAll(List.of(smoothJazz, sdp));
 
             User user1 = new User("MusicFan123");
