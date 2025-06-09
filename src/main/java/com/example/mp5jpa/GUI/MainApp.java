@@ -4,6 +4,7 @@ import com.example.mp5jpa.model.Artist;
 import com.example.mp5jpa.model.Song;
 import com.example.mp5jpa.service.MusicService;
 import org.springframework.stereotype.Component;
+import com.example.mp5jpa.model.User;
 
 import javax.swing.*;
 import javax.imageio.ImageIO;
@@ -25,7 +26,7 @@ import java.util.Set;
 public class MainApp {
 
     private final MusicService musicService;
-
+    private User currentUser;
     private JFrame frame;
     private JPanel cards;
     private CardLayout cardLayout;
@@ -64,6 +65,8 @@ public class MainApp {
         this.musicService = musicService;
         loadPlayerIcons();
         allArtistsMasterList = musicService.getAllArtistsWithSongs();
+        this.currentUser = musicService.findUserById(1L)
+                .orElseThrow(() -> new IllegalStateException("Default user with ID 1 not found in the database."));
     }
 
     private void loadPlayerIcons() {
@@ -180,6 +183,23 @@ public class MainApp {
         }
         songListContentPanel.revalidate();
         songListContentPanel.repaint();
+    }
+
+    public void handleRateSong(Song song, int rating) {
+        if (currentUser == null) {
+            JOptionPane.showMessageDialog(frame, "Cannot rate song: No user is logged in.", "Error", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+        try {
+            musicService.rateSong(currentUser.getId(), song.getId(), rating);
+            JOptionPane.showMessageDialog(frame,
+                    "You rated '" + song.getTitle() + "' " + rating + " stars.",
+                    "Rating Saved",
+                    JOptionPane.INFORMATION_MESSAGE);
+        } catch (Exception e) {
+            e.printStackTrace();
+            JOptionPane.showMessageDialog(frame, "Could not save rating: " + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+        }
     }
 
 
@@ -528,25 +548,76 @@ public class MainApp {
         private boolean isHovered = false;
         private final Color defaultBackgroundColor = new Color(255, 255, 255, 20);
         private final Color hoverBackgroundColor = new Color(255, 255, 255, 50);
+
         public SongListItemPanel(Song song) {
             this.song = song;
-            setLayout(new FlowLayout(FlowLayout.LEFT, 15, 10));
+
+            setLayout(new BorderLayout(15, 0));
             setOpaque(false);
-            setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+
+            JPanel infoPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 15, 10));
+            infoPanel.setOpaque(false);
             JLabel songTitleLabel = new JLabel(song.getTitle());
             songTitleLabel.setFont(new Font("Helvetica", Font.ITALIC, 16));
             songTitleLabel.setForeground(Color.BLACK);
             JLabel artistNameLabel = new JLabel("by " + (song.getArtist() != null ? song.getArtist().getName() : "Unknown Artist"));
             artistNameLabel.setFont(new Font("Helvetica", Font.PLAIN, 14));
             artistNameLabel.setForeground(Color.BLACK);
-            add(songTitleLabel);
-            add(artistNameLabel);
-            addMouseListener(new MouseAdapter() {
+            infoPanel.add(songTitleLabel);
+            infoPanel.add(artistNameLabel);
+
+            JPanel ratingPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 0));
+            ratingPanel.setOpaque(false);
+            for (int i = 1; i <= 5; i++) {
+                JButton starButton = createStarButton(i);
+                ratingPanel.add(starButton);
+            }
+
+            add(infoPanel, BorderLayout.CENTER);
+            add(ratingPanel, BorderLayout.EAST);
+
+            infoPanel.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+            infoPanel.addMouseListener(new MouseAdapter() {
                 @Override public void mouseClicked(MouseEvent e) { playAudio(song); }
+            });
+
+            this.addMouseListener(new MouseAdapter() {
                 @Override public void mouseEntered(MouseEvent e) { isHovered = true; repaint(); }
                 @Override public void mouseExited(MouseEvent e) { isHovered = false; repaint(); }
             });
         }
+
+        private JButton createStarButton(int rating) {
+            JButton button = new JButton("★");
+            button.setFont(new Font("Serif", Font.PLAIN, 20));
+            button.setOpaque(false);
+            button.setContentAreaFilled(false);
+            button.setBorderPainted(false);
+            button.setFocusPainted(false);
+            button.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+            button.setForeground(Color.GRAY);
+            button.addActionListener(e -> handleRateSong(song, rating));
+            button.setMargin(new java.awt.Insets(0, 0, 0, 0));
+
+            button.addMouseListener(new MouseAdapter() {
+                @Override
+                public void mouseEntered(MouseEvent e) {
+                    JPanel parent = (JPanel) button.getParent();
+                    for(int i = 0; i < parent.getComponentCount(); i++) {
+                        parent.getComponent(i).setForeground(i < rating ? Color.BLACK : Color.GRAY);
+                    }
+                }
+                @Override
+                public void mouseExited(MouseEvent e) {
+                    JPanel parent = (JPanel) button.getParent();
+                    for(java.awt.Component comp : parent.getComponents()) {
+                        comp.setForeground(Color.GRAY);
+                    }
+                }
+            });
+            return button;
+        }
+
         @Override
         protected void paintComponent(Graphics g) {
             super.paintComponent(g);
@@ -556,7 +627,7 @@ public class MainApp {
             g2d.fillRoundRect(5, 2, getWidth() - 10, getHeight() - 4, 15, 15);
             g2d.dispose();
         }
-        @Override public Dimension getPreferredSize() { return new Dimension(super.getPreferredSize().width, 50); }
+       @Override public Dimension getPreferredSize() { return new Dimension(super.getPreferredSize().width, 50); }
         @Override public Dimension getMaximumSize() { return new Dimension(Short.MAX_VALUE, getPreferredSize().height); }
     }
 
