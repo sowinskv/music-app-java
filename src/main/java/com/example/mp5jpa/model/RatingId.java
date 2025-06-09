@@ -8,7 +8,7 @@ import lombok.NoArgsConstructor;
 import java.io.Serializable;
 
 @Embeddable
-@Data // Includes equals(), hashCode(), toString(), getters, setters
+@Data
 @NoArgsConstructor
 @AllArgsConstructor
 public class RatingId implements Serializable {

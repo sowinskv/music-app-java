@@ -7,6 +7,8 @@ import lombok.Setter;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
+import java.util.HashSet;
 
 @Entity
 @Getter
@@ -15,7 +17,9 @@ import java.util.List;
 public class Song extends AbstractMediaItem {
 
     private int duration; // in seconds
-    private String genre;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "genre_id")
+    private Genre genre;
     private String audioUrl;
     private String coverImageUrl;
 
@@ -30,7 +34,13 @@ public class Song extends AbstractMediaItem {
     @OneToMany(mappedBy = "song", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Rating> ratings = new ArrayList<>();
 
-    public Song(String title, Artist artist, int duration, String genre, String audioUrl, String coverImageUrl) {
+    @ManyToMany(mappedBy = "songs")
+    private Set<Playlist> playlists = new HashSet<>();
+
+    @OneToMany(mappedBy = "song", cascade = CascadeType.ALL, orphanRemoval = true)
+    private Set<Review> reviews = new HashSet<>();
+
+    public Song(String title, Artist artist, int duration, Genre genre, String audioUrl, String coverImageUrl) {
         super(title);
         this.artist = artist;
         this.duration = duration;

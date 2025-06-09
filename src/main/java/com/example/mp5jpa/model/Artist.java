@@ -22,21 +22,31 @@ public class Artist {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @NotBlank(message = "Artist name cannot be blank.") // Validation [cite: 1]
-    @Size(min = 1, max = 100, message = "Artist name must be between 1 and 100 characters.") // Validation [cite: 1]
+    @NotBlank(message = "Artist name cannot be blank.")
+    @Size(min = 1, max = 100, message = "Artist name must be between 1 and 100 characters.")
     @Column(nullable = false, unique = true)
     private String name;
 
-    @Min(value = 0, message = "Age must be non-negative.") // Validation [cite: 1]
-    @Max(value = 150, message = "Age seems too high.") // Validation [cite: 1]
-    private Integer age; // Use Integer for optional field
+    @Min(value = 0, message = "Age must be non-negative.")
+    @Max(value = 150, message = "Age seems too high.")
+    private Integer age;
 
-    @OneToMany(mappedBy = "artist", cascade = {CascadeType.PERSIST, CascadeType.MERGE}) // Basic 1:* Association
+    @OneToMany(mappedBy = "artist", cascade = {CascadeType.PERSIST, CascadeType.MERGE})
     private Set<Album> albums = new HashSet<>();
 
-    @OneToMany(mappedBy = "artist", cascade = {CascadeType.PERSIST, CascadeType.MERGE}) // Basic 1:* Association
+    @OneToMany(mappedBy = "artist", cascade = {CascadeType.PERSIST, CascadeType.MERGE})
     private Set<Song> songs = new HashSet<>();
 
+    @ManyToMany(cascade = {CascadeType.PERSIST, CascadeType.MERGE})
+    @JoinTable(
+            name = "artist_genre",
+            joinColumns = @JoinColumn(name = "artist_id"),
+            inverseJoinColumns = @JoinColumn(name = "genre_id")
+    )
+    private Set<Genre> genres = new HashSet<>();
+
+    @ManyToMany(mappedBy = "artists")
+    private Set<MusicLabel> musicLabels = new HashSet<>();
 
     public Artist(String name) {
         this.name = name;

@@ -1,5 +1,6 @@
-package com.example.mp5jpa.GUI; // Upewnij się, że to jest poprawny pakiet
+package com.example.mp5jpa.GUI;
 
+import com.example.mp5jpa.model.Artist;
 import com.example.mp5jpa.model.Song;
 import com.example.mp5jpa.service.MusicService;
 import org.springframework.stereotype.Component;
@@ -8,16 +9,17 @@ import javax.swing.*;
 import javax.imageio.ImageIO;
 import javax.sound.sampled.*;
 import javax.swing.border.EmptyBorder;
-import javax.swing.event.DocumentEvent;
-import javax.swing.event.DocumentListener;
+import javax.swing.event.ListSelectionEvent;
 import java.awt.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.ArrayList; // Import dla ArrayList
-import java.util.stream.Collectors; // Import dla Stream API
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
+import java.util.Set;
 
 @Component
 public class MainApp {
@@ -50,9 +52,9 @@ public class MainApp {
     private ImageIcon rewindIcon;
     private ImageIcon forwardIcon;
 
-    private java.util.List<Song> allSongsMasterList;
     private JPanel songListContentPanel;
-    private JTextField searchField;
+    private JList<Artist> artistList;
+    private List<Artist> allArtistsMasterList;
 
     private JLabel playerEmptyStateLabel;
     private JPanel actualControlsPanel;
@@ -61,7 +63,7 @@ public class MainApp {
     public MainApp(MusicService musicService) {
         this.musicService = musicService;
         loadPlayerIcons();
-        allSongsMasterList = musicService.getAllSongs();
+        allArtistsMasterList = musicService.getAllArtistsWithSongs();
     }
 
     private void loadPlayerIcons() {
@@ -87,7 +89,7 @@ public class MainApp {
     public void createAndShowGUI() {
         frame = new JFrame("Music Library");
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        frame.setSize(800, 600);
+        frame.setSize(1000, 700);
         frame.setLayout(new BorderLayout());
 
         BackgroundPanel mainContentPane = new BackgroundPanel(loadImage("/images/library_bg.jpg"));
@@ -112,6 +114,95 @@ public class MainApp {
         updatePlayerControlsVisibility();
     }
 
+    private void createLibraryPanel() {
+        JPanel libraryPanel = new BackgroundPanel(loadImage("/images/library_bg.jpg"));
+        libraryPanel.setLayout(new BorderLayout(0, 10));
+        libraryPanel.setBorder(new EmptyBorder(10, 20, 10, 20));
+
+        DefaultListModel<Artist> artistListModel = new DefaultListModel<>();
+        if (allArtistsMasterList != null) {
+            allArtistsMasterList.forEach(artistListModel::addElement);
+        }
+        artistList = new JList<>(artistListModel);
+        artistList.setCellRenderer(new ArtistListCellRenderer());
+        artistList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+        artistList.setOpaque(false);
+
+        artistList.addListSelectionListener(this::onArtistSelectionChanged);
+
+        JScrollPane artistScrollPane = new JScrollPane(artistList);
+        artistScrollPane.setOpaque(false);
+        artistScrollPane.getViewport().setOpaque(false);
+        artistScrollPane.setBorder(BorderFactory.createTitledBorder("Artists"));
+
+        if (songListContentPanel == null) {
+            songListContentPanel = new JPanel();
+            songListContentPanel.setLayout(new BoxLayout(songListContentPanel, BoxLayout.Y_AXIS));
+            songListContentPanel.setOpaque(false);
+        }
+        JScrollPane songScrollPane = new JScrollPane(songListContentPanel);
+        songScrollPane.setOpaque(false);
+        songScrollPane.getViewport().setOpaque(false);
+        songScrollPane.setBorder(BorderFactory.createTitledBorder("Songs"));
+
+        JSplitPane splitPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, artistScrollPane, songScrollPane);
+        splitPane.setDividerLocation(300);
+        splitPane.setOpaque(false);
+
+        libraryPanel.add(splitPane, BorderLayout.CENTER);
+        cards.add(libraryPanel, "LIBRARY");
+    }
+
+    private void onArtistSelectionChanged(ListSelectionEvent e) {
+        if (!e.getValueIsAdjusting()) {
+            Artist selectedArtist = artistList.getSelectedValue();
+            if (selectedArtist != null) {
+                Set<Song> songs = selectedArtist.getSongs();
+                updateSongListPanel(songs);
+            } else {
+                updateSongListPanel(new ArrayList<>());
+            }
+        }
+    }
+
+    private void updateSongListPanel(Collection<Song> songsToShow) {
+        songListContentPanel.removeAll();
+        if (songsToShow.isEmpty()) {
+            JLabel emptyLabel = new JLabel("Select an artist to see their songs.");
+            emptyLabel.setHorizontalAlignment(SwingConstants.CENTER);
+            songListContentPanel.add(emptyLabel);
+        } else {
+            for (Song song : songsToShow) {
+                SongListItemPanel songPanel = new SongListItemPanel(song);
+                songListContentPanel.add(songPanel);
+                songListContentPanel.add(Box.createRigidArea(new Dimension(0, 8)));
+            }
+        }
+        songListContentPanel.revalidate();
+        songListContentPanel.repaint();
+    }
+
+
+    class ArtistListCellRenderer extends DefaultListCellRenderer {
+        @Override
+        public java.awt.Component getListCellRendererComponent(JList<?> list, Object value, int index, boolean isSelected, boolean cellHasFocus) {
+            java.awt.Component c = super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
+            if (value instanceof Artist) {
+                Artist artist = (Artist) value;
+                setText(artist.getName());
+                setFont(new Font("Helvetica", Font.BOLD, 14));
+                setBorder(new EmptyBorder(5, 10, 5, 10));
+            }
+
+            if (!isSelected) {
+                c.setBackground(new Color(255, 255, 255, 20));
+            } else {
+                c.setBackground(new Color(100, 150, 255, 100));
+            }
+            return c;
+        }
+    }
+
     private void createSidebarPanel() {
         sidebarPanel = new TransparentSidebarPanel(new Color(255, 255, 255, 70));
         sidebarPanel.setPreferredSize(new Dimension(currentSidebarWidth, 0));
@@ -132,7 +223,6 @@ public class MainApp {
         sidebarPanel.add(playerButton);
     }
 
-    // ZMIANA: Używamy dedykowanej klasy SidebarButton zamiast GlassButton
     private JButton createSidebarButton(String text) {
         SidebarButton button = new SidebarButton(text);
         button.setFont(new Font("Helvetica", Font.PLAIN, 14));
@@ -189,72 +279,6 @@ public class MainApp {
         cards.add(mainPanel, "MAIN");
     }
 
-    private void createLibraryPanel() {
-        JPanel libraryPanel = new BackgroundPanel(loadImage("/images/library_bg.jpg"));
-        libraryPanel.setLayout(new BorderLayout(0, 10));
-        libraryPanel.setBorder(new EmptyBorder(10, 20, 10, 20));
-
-        JPanel searchPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
-        searchPanel.setOpaque(false);
-        searchField = new JTextField(25);
-        searchField.setFont(new Font("Helvetica", Font.PLAIN, 14));
-        searchField.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(new Color(200, 200, 200, 150), 1),
-                new EmptyBorder(5, 8, 5, 8)
-        ));
-        searchField.setOpaque(false);
-
-        searchField.getDocument().addDocumentListener(new DocumentListener() {
-            public void changedUpdate(DocumentEvent e) { filterSongs(); }
-            public void removeUpdate(DocumentEvent e) { filterSongs(); }
-            public void insertUpdate(DocumentEvent e) { filterSongs(); }
-        });
-        searchPanel.add(new JLabel("Search: "));
-        searchPanel.add(searchField);
-        libraryPanel.add(searchPanel, BorderLayout.NORTH);
-
-        if (songListContentPanel == null) {
-            songListContentPanel = new JPanel();
-            songListContentPanel.setLayout(new BoxLayout(songListContentPanel, BoxLayout.Y_AXIS));
-            songListContentPanel.setOpaque(false);
-        }
-
-        updateSongListPanel(allSongsMasterList);
-
-        JScrollPane scrollPane = new JScrollPane(songListContentPanel);
-        scrollPane.setOpaque(false);
-        scrollPane.getViewport().setOpaque(false);
-        scrollPane.setBorder(BorderFactory.createEmptyBorder(10,0,0,0));
-
-        libraryPanel.add(scrollPane, BorderLayout.CENTER);
-        cards.add(libraryPanel, "LIBRARY");
-    }
-
-    private void filterSongs() {
-        String searchText = searchField.getText().toLowerCase().trim();
-        if (searchText.isEmpty()) {
-            updateSongListPanel(allSongsMasterList);
-        } else {
-            java.util.List<Song> filteredSongs = allSongsMasterList.stream()
-                    .filter(song -> song.getTitle().toLowerCase().contains(searchText) ||
-                            (song.getArtist() != null && song.getArtist().getName().toLowerCase().contains(searchText)))
-                    .collect(Collectors.toList());
-            updateSongListPanel(filteredSongs);
-        }
-    }
-
-    private void updateSongListPanel(java.util.List<Song> songsToShow) {
-        songListContentPanel.removeAll();
-        for (Song song : songsToShow) {
-            SongListItemPanel songPanel = new SongListItemPanel(song);
-            songListContentPanel.add(songPanel);
-            songListContentPanel.add(Box.createRigidArea(new Dimension(0, 8)));
-        }
-        songListContentPanel.revalidate();
-        songListContentPanel.repaint();
-    }
-
-
     private void createPlayerPanel() {
         JPanel playerPanel = new BackgroundPanel(loadImage("/images/library_bg.jpg"));
         playerPanel.setLayout(new BorderLayout());
@@ -262,7 +286,6 @@ public class MainApp {
 
         songCoverLabel = new JLabel();
         songCoverLabel.setHorizontalAlignment(SwingConstants.CENTER);
-        // Initially, no cover or text, this will be shown when a song plays
         playerPanel.add(songCoverLabel, BorderLayout.CENTER);
 
 
@@ -272,7 +295,6 @@ public class MainApp {
         songTitleLabel.setBorder(new EmptyBorder(20, 0, 10, 0));
         playerPanel.add(songTitleLabel, BorderLayout.NORTH);
 
-        // Panel for actual player controls (rewind, play/pause, forward)
         actualControlsPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 10));
         actualControlsPanel.setOpaque(false);
         actualControlsPanel.setBorder(new EmptyBorder(0, 0, 10, 0));
@@ -312,22 +334,19 @@ public class MainApp {
     }
 
     private void updatePlayerControlsVisibility() {
-        if (cards == null || playerEmptyStateLabel == null || actualControlsPanel == null) return; // Guard clause
+        if (cards == null || playerEmptyStateLabel == null || actualControlsPanel == null) return;
 
-        CardLayout cl = (CardLayout) ((JPanel)actualControlsPanel.getParent()).getLayout(); // Get CardLayout from southPanelContainer
+        CardLayout cl = (CardLayout) ((JPanel)actualControlsPanel.getParent()).getLayout();
         JPanel southPanel = (JPanel) actualControlsPanel.getParent();
 
-        if (audioClip == null || !audioClip.isOpen()) { // No song loaded or clip is closed
-            // Show empty state message, hide controls
-            songCoverLabel.setIcon(null); // Clear cover art
-            songCoverLabel.setText("");   // Clear any "No Cover Art" text
-            songTitleLabel.setText("");   // Clear song title
+        if (audioClip == null || !audioClip.isOpen()) {
+            songCoverLabel.setIcon(null);
+            songCoverLabel.setText("");
+            songTitleLabel.setText("");
             cl.show(southPanel, "EMPTY_STATE");
         } else {
-            // Show controls, hide empty state message
             cl.show(southPanel, "CONTROLS");
         }
-        // Ensure play/pause button icon is also updated
         updatePlayPauseButton();
     }
 
@@ -337,7 +356,6 @@ public class MainApp {
         button.setBorderPainted(false);
         button.setFocusPainted(false);
         button.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-        //button.setPreferredSize(new Dimension(50, 50));
     }
 
     private void updatePlayPauseButton() {
@@ -394,7 +412,7 @@ public class MainApp {
                 }
             });
 
-            String coverPath = song.getCoverImageUrl(); // Zakładamy, że ścieżka jest już poprawna np. "/images/tutu.jpg"
+            String coverPath = song.getCoverImageUrl();
             Image coverImage = loadImage(coverPath);
             if (coverImage == null) {
                 coverImage = loadImage(DEFAULT_COVER_PATH);
@@ -450,14 +468,14 @@ public class MainApp {
 
     private void rewindAudio() {
         if (audioClip != null) {
-            long newPosition = audioClip.getMicrosecondPosition() - 5000000; // Przewiń o 5 sekund
+            long newPosition = audioClip.getMicrosecondPosition() - 5000000;
             audioClip.setMicrosecondPosition(Math.max(0, newPosition));
         }
     }
 
     private void forwardAudio() {
         if (audioClip != null) {
-            long newPosition = audioClip.getMicrosecondPosition() + 5000000; // Przewiń o 5 sekund
+            long newPosition = audioClip.getMicrosecondPosition() + 5000000;
             audioClip.setMicrosecondPosition(Math.min(audioClip.getMicrosecondLength(), newPosition));
         }
     }
@@ -493,7 +511,6 @@ public class MainApp {
         }
     }
 
-    // --- Klasy Wewnętrzne ---
     class BackgroundPanel extends JPanel {
         private final Image backgroundImage;
         public BackgroundPanel(Image image) { this.backgroundImage = image; }
@@ -599,7 +616,6 @@ public class MainApp {
             this.sidebarBackgroundColor = bgColor;
             setOpaque(false);
             setLayout(new BoxLayout(this, BoxLayout.Y_AXIS));
-            //setPreferredSize(new Dimension(180, 0)); // Szerokość zarządzana przez sidebarAnimationTimer
             setBorder(new EmptyBorder(15, 10, 15, 10));
         }
         @Override
@@ -613,7 +629,7 @@ public class MainApp {
         }
     }
 
-    // NOWA ZMIANA: Klasa SidebarButton (zamiast createSidebarButton)
+
     class SidebarButton extends JButton {
         private Color backgroundColor;
         private Color hoverBackgroundColor;
@@ -626,10 +642,9 @@ public class MainApp {
             setForeground(Color.BLACK);
             setFont(new Font("Helvetica", Font.BOLD, 14));
 
-            // Definiujemy kolory - możesz je dostosować
-            backgroundColor = new Color(255, 255, 255, 0); // Całkowicie przezroczyste tło domyślnie
-            hoverBackgroundColor = new Color(220, 220, 220, 100); // Jasnoszare, półprzezroczyste na hover
-            pressedBackgroundColor = new Color(200, 200, 200, 150); // Nieco ciemniejsze przy wciśnięciu
+            backgroundColor = new Color(255, 255, 255, 0);
+            hoverBackgroundColor = new Color(220, 220, 220, 100);
+            pressedBackgroundColor = new Color(200, 200, 200, 150);
 
             setOpaque(false);
             setContentAreaFilled(false);
@@ -681,30 +696,8 @@ public class MainApp {
             } else {
                 g2.setColor(backgroundColor);
             }
-            // Możesz rysować prostokąt lub zaokrąglony prostokąt
             g2.fillRect(0, 0, getWidth(), getHeight());
-            // g2.fillRoundRect(0, 0, getWidth(), getHeight(), 10, 10); // Jeśli chcesz zaokrąglenia
-
-            // Rysowanie tekstu (odziedziczone z super.paintComponent lub rysowane ręcznie)
-            // Aby tekst był poprawnie wycentrowany, pozwalamy domyślnej implementacji go narysować
-            // ale ponieważ setContentAreaFilled(false), musimy sami go narysować
-            super.paintComponent(g); // To wywoła rysowanie tekstu przez JButton, jeśli inne flagi są ustawione poprawnie
-            // Jeśli tekst się nie pojawia, użyj poniższego kodu do ręcznego rysowania:
-            /*
-            FontMetrics fm = g2.getFontMetrics();
-            String currentText = getText();
-            Rectangle stringBounds = fm.getStringBounds(currentText, g2).getBounds();
-            int textX = (getWidth() - stringBounds.width) / 2;
-            int textY = (getHeight() - stringBounds.height) / 2 + fm.getAscent();
-
-            if (isPressed) {
-                textX += 1;
-                textY += 1;
-            }
-
-            g2.setColor(getForeground());
-            g2.drawString(currentText, textX, textY);
-            */
+            super.paintComponent(g);
             g2.dispose();
         }
     }

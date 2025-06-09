@@ -18,17 +18,18 @@ import java.util.List;
 @NoArgsConstructor
 public class Album extends AbstractMediaItem {
 
-    @PastOrPresent(message = "Release date cannot be in the future.") // Validation [cite: 1]
+    @PastOrPresent(message = "Release date cannot be in the future.")
     private LocalDate releaseDate;
 
-    private String label;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "musiclabel_id")
+    private MusicLabel musicLabel;
 
-    @ManyToOne(fetch = FetchType.LAZY) // Basic *:1 Association
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "artist_id")
     @NotNull(message = "Album must have an artist.")
     private Artist artist;
 
-    // Composition Association [cite: 3]
     @OneToMany(mappedBy = "album", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Song> songs = new ArrayList<>();
 
@@ -45,7 +46,7 @@ public class Album extends AbstractMediaItem {
             }
             this.songs.add(song);
             song.setAlbum(this);
-            // Ensure artist consistency
+
             if(song.getArtist() == null) {
                 song.setArtist(this.artist);
             } else if (!song.getArtist().equals(this.artist)) {

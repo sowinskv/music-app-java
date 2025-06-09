@@ -31,6 +31,9 @@ public class Rating {
     @Column(name = "rating_value", nullable = false)
     private int ratingValue;
 
+    @OneToOne(mappedBy = "rating", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    private Review review;
+
     public Rating(User user, Song song, int ratingValue) {
         this.user = user;
         this.song = song;
